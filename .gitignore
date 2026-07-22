@@ -1,0 +1,46 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pkl
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Local experiment outputs
+runs/
+eval/
+checkpoints/
+outputs/
+logs/
+wandb/
+
+# Large data/model outputs
+data/
+models/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.bin
+*.zip
+*.tar
+*.tar.gz
+*.gz
+*.nii.gz
+*.nii
+*.nrrd
+*.mha
+*.mhd
+*.tfm
+*.h5
+*.hdf5
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

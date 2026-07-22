@@ -1,0 +1,88 @@
+{
+    "imports": [
+        "$from pathlib import Path",
+        "$from scripts import mni_transforms",
+        "$from scripts import mask_conditioned_ldm_trainer"
+    ],
+    "bundle_root": ".",
+    "model_dir": "$@bundle_root + '/models'",
+    "mni_cache_dir": "$@bundle_root + '/data/mni_cache'",
+    "native_val_dir": "/mnt/c/Users/王政傑/GenerativeModels/ASNR-MICCAI-BraTS2023-Local-Synthesis-Challenge-Validation",
+    "inference_mni_cache_dir": "$@bundle_root + '/data/mni_cache_val'",
+    "atlas_prior_path": "$@bundle_root + '/MNI152_T1_1mm_brain.nii.gz'",
+    "output_dir": "$@bundle_root + '/output_mni_inpaint'",
+    "create_output_dir": "$Path(@output_dir).mkdir(parents=True, exist_ok=True)",
+    "device": "$torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')",
+    "batch_size": 1,
+    "num_workers": 0,
+    "num_inference_steps": 50,
+    "scale_factor": 1.0,
+    "inference_case_name": "",
+    "overwrite_inference_cache": false,
+    "spatial_dims": 3,
+    "image_channels": 1,
+    "latent_channels": 8,
+    "inference_cases": "$mni_transforms.prepare_mni_inpaint_cases_from_native(native_data_dir=@native_val_dir, mni_cache_dir=@inference_mni_cache_dir, template_path=@atlas_prior_path, case_name=@inference_case_name, overwrite_cache=@overwrite_inference_cache)",
+    "autoencoder_def": {
+        "_target_": "monai.networks.nets.autoencoderkl.AutoencoderKL",
+        "spatial_dims": "@spatial_dims",
+        "in_channels": "@image_channels",
+        "out_channels": "@image_channels",
+        "latent_channels": "@latent_channels",
+        "channels": [64, 128, 256],
+        "num_res_blocks": 2,
+        "norm_num_groups": 32,
+        "norm_eps": 1e-06,
+        "attention_levels": [false, false, false],
+        "with_encoder_nonlocal_attn": false,
+        "with_decoder_nonlocal_attn": false,
+        "include_fc": false
+    },
+    "network_def": {
+        "_target_": "monai.networks.nets.diffusion_model_unet.DiffusionModelUNet",
+        "spatial_dims": "@spatial_dims",
+        "in_channels": 17,
+        "out_channels": "@latent_channels",
+        "channels": [256, 256, 512],
+        "attention_levels": [false, true, true],
+        "num_head_channels": [0, 64, 64],
+        "num_res_blocks": 2,
+        "include_fc": false,
+        "use_combined_linear": false
+    },
+    "load_autoencoder_path": "$@bundle_root + '/models/model_autoencoder.pt'",
+    "load_autoencoder": "$@autoencoder_def.load_old_state_dict(torch.load(@load_autoencoder_path))",
+    "autoencoder": "$@autoencoder_def.to(@device)",
+    "load_diffusion_path": "$@model_dir + '/model_inpaint_mni_all.pt'",
+    "diffusion": "$@network_def.to(@device)",
+    "load_diffusion": "$mask_conditioned_ldm_trainer.load_mask_conditioned_diffusion(@diffusion, @load_diffusion_path)",
+    "noise_scheduler": {
+        "_target_": "monai.networks.schedulers.ddim.DDIMScheduler",
+        "_requires_": ["@load_diffusion", "@load_autoencoder"],
+        "num_train_timesteps": 1000,
+        "beta_start": 0.0015,
+        "beta_end": 0.0195,
+        "schedule": "scaled_linear_beta",
+        "clip_sample": false
+    },
+    "inferer": {
+        "_target_": "scripts.mni_inpaint_sampler.MNIInpaintSampler",
+        "num_inference_steps": "@num_inference_steps",
+        "scale_factor": "@scale_factor",
+        "use_mask_conditioning": true,
+        "concat_voided_latent": true,
+        "concat_atlas_latent": false,
+        "atlas_prior_scale": 0.35,
+        "region_checkpoint_paths": {
+            "deep": "$@model_dir + '/model_inpaint_mni_deep.pt'",
+            "cortical": "$@model_dir + '/model_inpaint_mni_cortical.pt'",
+            "center": "$@model_dir + '/model_inpaint_mni_center.pt'"
+        },
+        "default_checkpoint_path": "@load_diffusion_path",
+        "save_mni_output": true
+    },
+    "run": [
+        "$@create_output_dir",
+        "$@inferer.run(cases=@inference_cases, autoencoder_model=@autoencoder, diffusion_model=@diffusion, scheduler=@noise_scheduler, device=@device, output_dir=@output_dir, batch_size=@batch_size, num_workers=@num_workers)"
+    ]
+}

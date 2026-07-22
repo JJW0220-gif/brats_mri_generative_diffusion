@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1000" viewBox="0 0 1800 1000">
+  <rect width="100%" height="100%" fill="white"/>
+  <text x="60" y="50" font-family="Arial, sans-serif" font-size="30" font-weight="bold">Training and Inference Pipeline</text>
+
+  <rect x="80" y="120" width="340" height="90" rx="16" ry="16" fill="#e8f0ff" stroke="#3c5b8f" stroke-width="3"/>
+  <text x="250" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">Raw BraTS case</text>
+
+  <rect x="470" y="120" width="320" height="90" rx="16" ry="16" fill="#e8f0ff" stroke="#3c5b8f" stroke-width="3"/>
+  <text x="630" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">Build MNI cache</text>
+
+  <rect x="820" y="120" width="320" height="90" rx="16" ry="16" fill="#e8f0ff" stroke="#3c5b8f" stroke-width="3"/>
+  <text x="980" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">Stage 1 AE training</text>
+
+  <rect x="1180" y="120" width="320" height="90" rx="16" ry="16" fill="#e8f0ff" stroke="#3c5b8f" stroke-width="3"/>
+  <text x="1340" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">Stage 2 diffusion training</text>
+
+  <rect x="1520" y="120" width="240" height="90" rx="16" ry="16" fill="#e8f0ff" stroke="#3c5b8f" stroke-width="3"/>
+  <text x="1640" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">Trained model</text>
+
+  <line x1="250" y1="210" x2="250" y2="240" stroke="#555" stroke-width="3"/>
+  <line x1="630" y1="210" x2="630" y2="240" stroke="#555" stroke-width="3"/>
+  <line x1="980" y1="210" x2="980" y2="240" stroke="#555" stroke-width="3"/>
+  <line x1="1340" y1="210" x2="1340" y2="240" stroke="#555" stroke-width="3"/>
+
+  <line x1="250" y1="240" x2="630" y2="240" stroke="#555" stroke-width="3"/>
+  <line x1="630" y1="240" x2="980" y2="240" stroke="#555" stroke-width="3"/>
+  <line x1="980" y1="240" x2="1340" y2="240" stroke="#555" stroke-width="3"/>
+  <line x1="1340" y1="240" x2="1640" y2="240" stroke="#555" stroke-width="3"/>
+  <polygon points="1640,240 1620,225 1620,255" fill="#555"/>
+
+  <rect x="80" y="360" width="320" height="90" rx="16" ry="16" fill="#f6fff3" stroke="#4f7d3b" stroke-width="3"/>
+  <text x="240" y="410" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">Input native case</text>
+
+  <rect x="450" y="360" width="320" height="90" rx="16" ry="16" fill="#f6fff3" stroke="#4f7d3b" stroke-width="3"/>
+  <text x="610" y="410" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">Prepare MNI case</text>
+
+  <rect x="820" y="360" width="320" height="90" rx="16" ry="16" fill="#f6fff3" stroke="#4f7d3b" stroke-width="3"/>
+  <text x="980" y="410" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">Load AE + diffusion</text>
+
+  <rect x="1180" y="360" width="320" height="90" rx="16" ry="16" fill="#f6fff3" stroke="#4f7d3b" stroke-width="3"/>
+  <text x="1340" y="410" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">MNIInpaintSampler</text>
+
+  <rect x="1520" y="360" width="260" height="90" rx="16" ry="16" fill="#f6fff3" stroke="#4f7d3b" stroke-width="3"/>
+  <text x="1650" y="410" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">inpainted_native.nii.gz</text>
+
+  <line x1="240" y1="450" x2="240" y2="480" stroke="#555" stroke-width="3"/>
+  <line x1="610" y1="450" x2="610" y2="480" stroke="#555" stroke-width="3"/>
+  <line x1="980" y1="450" x2="980" y2="480" stroke="#555" stroke-width="3"/>
+  <line x1="1340" y1="450" x2="1340" y2="480" stroke="#555" stroke-width="3"/>
+
+  <line x1="240" y1="480" x2="610" y2="480" stroke="#555" stroke-width="3"/>
+  <line x1="610" y1="480" x2="980" y2="480" stroke="#555" stroke-width="3"/>
+  <line x1="980" y1="480" x2="1340" y2="480" stroke="#555" stroke-width="3"/>
+  <line x1="1340" y1="480" x2="1650" y2="480" stroke="#555" stroke-width="3"/>
+  <polygon points="1650,480 1630,465 1630,495" fill="#555"/>
+
+  <rect x="80" y="620" width="560" height="90" rx="16" ry="16" fill="#fff7e8" stroke="#a6761d" stroke-width="3"/>
+  <text x="360" y="670" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">Training: build cache → AE training → diffusion training</text>
+
+  <rect x="680" y="620" width="980" height="90" rx="16" ry="16" fill="#fff7e8" stroke="#a6761d" stroke-width="3"/>
+  <text x="1170" y="670" text-anchor="middle" font-family="Arial, sans-serif" font-size="24">Inference: native case → MNI cache → sampler → inverse transform</text>
+</svg>

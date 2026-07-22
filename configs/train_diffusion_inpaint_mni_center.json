@@ -1,0 +1,165 @@
+{
+    "imports": [
+        "$from scripts import mni_transforms",
+        "$from scripts import mask_conditioned_ldm_trainer",
+        "$import scripts"
+    ],
+    "bundle_root": ".",
+    "device": "$torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')",
+    "ckpt_dir": "$@bundle_root + '/models'",
+    "tf_dir": "$@bundle_root + '/eval'",
+    "seg_bundle_url": "https://api.ngc.nvidia.com/v2/models/nvidia/monaihosting/wholebrainseg_large_unest_segmentation/versions/0.2.5/files/wholeBrainSeg_Large_UNEST_segmentation_v0.2.5.zip",
+    "seg_bundle_zip_path": "$@bundle_root + '/models/seg_teacher_bundle.zip'",
+    "seg_bundle_dir": "$@bundle_root + '/models/seg_teacher_bundle'",
+    "seg_config_rel_path": "configs/inference.json",
+    "seg_checkpoint_rel_path": "models/model.pt",
+    "seg_network_key": "network_def",
+    "segmentor": "$scripts.seg_teacher.get_frozen_monai_bundle_segmentor(bundle_url=@seg_bundle_url, bundle_zip_path=@seg_bundle_zip_path, bundle_dir=@seg_bundle_dir, config_rel_path=@seg_config_rel_path, checkpoint_rel_path=@seg_checkpoint_rel_path, network_key=@seg_network_key, device=@device)",
+    "seg_guidance_weight": 0.02,
+    "fseg": 20,
+    "seg_denoise_steps": 10,
+    "mni_cache_dir": "$@bundle_root + '/data/mni_cache'",
+    "atlas_prior_path": "$@bundle_root + '/MNI152_T1_1mm_brain.nii.gz'",
+    "train_region": "center",
+    "train_size_bucket": "all",
+    "train_files": "$mni_transforms.collect_mni_inpaint_cases_by_region(@mni_cache_dir, region=@train_region, size_bucket=@train_size_bucket)",
+    "train_batch_size": 1,
+    "lr": 5e-06,
+    "train_patch_size": [144, 176, 112],
+    "spatial_dims": 3,
+    "image_channels": 1,
+    "latent_channels": 8,
+    "load_autoencoder_path": "$@bundle_root + '/models/model_autoencoder.pt'",
+    "load_autoencoder": "$@autoencoder_def.load_old_state_dict(torch.load(@load_autoencoder_path))",
+    "load_diffusion_path": "$@bundle_root + '/models/model_inpaint_mni_center.pt'",
+    "autoencoder_def": {
+        "_target_": "monai.networks.nets.autoencoderkl.AutoencoderKL",
+        "spatial_dims": "@spatial_dims",
+        "in_channels": "@image_channels",
+        "out_channels": "@image_channels",
+        "latent_channels": "@latent_channels",
+        "channels": [64, 128, 256],
+        "num_res_blocks": 2,
+        "norm_num_groups": 32,
+        "norm_eps": 1e-06,
+        "attention_levels": [false, false, false],
+        "with_encoder_nonlocal_attn": false,
+        "with_decoder_nonlocal_attn": false,
+        "include_fc": false
+    },
+    "autoencoder": "$@autoencoder_def.to(@device)",
+    "network_def": {
+        "_target_": "monai.networks.nets.diffusion_model_unet.DiffusionModelUNet",
+        "spatial_dims": "@spatial_dims",
+        "in_channels": 17,
+        "out_channels": "@latent_channels",
+        "channels": [256, 256, 512],
+        "attention_levels": [false, true, true],
+        "num_head_channels": [0, 64, 64],
+        "num_res_blocks": 2,
+        "include_fc": false,
+        "use_combined_linear": false
+    },
+    "diffusion": "$@network_def.to(@device)",
+    "load_diffusion": "$mask_conditioned_ldm_trainer.load_mask_conditioned_diffusion(@diffusion, @load_diffusion_path)",
+    "optimizer": {
+        "_target_": "torch.optim.AdamW",
+        "params": "$@diffusion.parameters()",
+        "lr": "@lr"
+    },
+    "lr_scheduler": {
+        "_target_": "torch.optim.lr_scheduler.MultiStepLR",
+        "optimizer": "@optimizer",
+        "milestones": [100, 1000],
+        "gamma": 0.1
+    },
+    "scale_factor": "$scripts.utils.compute_scale_factor(@autoencoder,@train#dataloader,@device)",
+    "noise_scheduler": {
+        "_target_": "monai.networks.schedulers.ddpm.DDPMScheduler",
+        "_requires_": ["@load_autoencoder", "@load_diffusion"],
+        "schedule": "scaled_linear_beta",
+        "num_train_timesteps": 1000,
+        "beta_start": 0.0015,
+        "beta_end": 0.0195
+    },
+    "loss": {"_target_": "torch.nn.MSELoss"},
+    "train": {
+        "preprocessing": "$mni_transforms.make_inpaint_mni_transforms(roi_size=@train_patch_size, include_voided=True, include_atlas=False, augment_random_masks=True, random_mask_prob=0.8, region_sampling=False, region='center')",
+        "dataset": {
+            "_target_": "monai.data.Dataset",
+            "data": "@train_files",
+            "transform": "@train#preprocessing"
+        },
+        "dataloader": {
+            "_target_": "DataLoader",
+            "dataset": "@train#dataset",
+            "batch_size": "@train_batch_size",
+            "shuffle": true,
+            "num_workers": 0
+        },
+        "handlers": [
+            {
+                "_target_": "LrScheduleHandler",
+                "lr_scheduler": "@lr_scheduler",
+                "print_lr": true
+            },
+            {
+                "_target_": "CheckpointSaver",
+                "save_dir": "@ckpt_dir",
+                "save_dict": {"model": "@diffusion"},
+                "save_interval": 1,
+                "n_saved": 10,
+                "save_final": true,
+                "epoch_level": true,
+                "final_filename": "$'model_inpaint_mni_' + @train_region + '.pt'"
+            },
+            {
+                "_target_": "StatsHandler",
+                "tag_name": "train_diffusion_inpaint_loss",
+                "output_transform": "$lambda x: monai.handlers.from_engine(['loss'], first=True)(x)"
+            },
+            {
+                "_target_": "TensorBoardStatsHandler",
+                "log_dir": "@tf_dir",
+                "tag_name": "train_diffusion_inpaint_loss",
+                "output_transform": "$lambda x: monai.handlers.from_engine(['loss'], first=True)(x)"
+            }
+        ],
+        "trainer": {
+            "_target_": "scripts.mask_conditioned_ldm_trainer.MaskConditionedLDMTrainer",
+            "device": "@device",
+            "max_epochs": 500,
+            "train_data_loader": "@train#dataloader",
+            "network": "@diffusion",
+            "autoencoder_model": "@autoencoder",
+            "optimizer": "@optimizer",
+            "loss_function": "@loss",
+            "inferer": {
+                "_target_": "monai.inferers.LatentDiffusionInferer",
+                "scheduler": "@noise_scheduler",
+                "scale_factor": "@scale_factor"
+            },
+            "scale_factor": "@scale_factor",
+            "concat_voided_latent": true,
+            "concat_atlas_latent": false,
+            "atlas_prior_scale": 0.35,
+            "segmentor": "@segmentor",
+            "seg_guidance_weight": "@seg_guidance_weight",
+            "seg_wm_index": 1,
+            "seg_gm_index": 2,
+            "fseg": "@fseg",
+            "seg_denoise_steps": "@seg_denoise_steps",
+            "amp": true,
+            "key_train_metric": "$None",
+            "train_handlers": "@train#handlers"
+        }
+    },
+    "initialize": ["$monai.utils.set_determinism(seed=0)"],
+    "run": [
+        "$@load_autoencoder",
+        "$@load_diffusion",
+        "$@autoencoder.eval()",
+        "$print('scale factor:', @scale_factor)",
+        "$@train#trainer.run()"
+    ]
+}
