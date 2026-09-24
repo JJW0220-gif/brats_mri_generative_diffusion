@@ -74,17 +74,17 @@ Evaluating on the BraTS Validation Set ($N=219$):
 
 The pretrained model was evaluated on 219 cases with the following results:
 
-| Metric | Mean | Standard deviation |
-| :--- | ---: | ---: |
-| SSIM | 0.5468175114192994 | 0.15803867813841377 |
-| MSE | 0.13279866336268328 | 0.07318928674526683 |
-| RMSE | 0.11181356570780017 | - |
-| MSLE | 0.03558810337416418 | - |
-| MAE | 0.08476125223832869 | - |
-| PSNR | 9.807287362476877 | 3.659877873659053 |
-| PSNR (normalized 0-1) | 9.807287367563399 | 3.6598779067865324 |
-| PSNR epsilon | 3.6598780694312754 | - |
-| PSNR (normalized 0-1) epsilon | 3.6598780939554545 | - |
+| Metric | Value ($\text{Mean} \pm \text{Std}$) |
+| :--- | :--- |
+| **SSIM** $\uparrow$ | $0.5468175114192994 \pm 0.15803867813841377$ |
+| **MSE** $\downarrow$ | $0.13279866336268328 \pm 0.07318928674526683$ |
+| **RMSE** $\downarrow$ | $0.11181356570780017$ |
+| **MSLE** $\downarrow$ | $0.03558810337416418$ |
+| **MAE** $\downarrow$ | $0.08476125223832869$ |
+| **PSNR (dB)** $\uparrow$ | $9.807287362476877 \pm 3.659877873659053$ |
+| **PSNR (normalized 0-1)** $\uparrow$ | $9.807287367563399 \pm 3.6598779067865324$ |
+| **PSNR epsilon** | $3.6598780694312754$ |
+| **PSNR (normalized 0-1) epsilon** | $3.6598780939554545$ |
 
 `cases_evaluated`: 219
 
