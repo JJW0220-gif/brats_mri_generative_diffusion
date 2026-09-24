@@ -113,6 +113,46 @@ Implementation:
 - concat_atlas_latent: false
 - diffusion in_channels: 17
 
+### Region-specific mask training strategy
+
+To make the inpainting model more specialized, we train separate region-aware variants of the mask-conditioned diffusion model:
+
+- Deep model:
+  - focuses on lesions or missing regions located in deeper brain structures.
+  - useful when the corruption is near the center of the brain, around deep gray matter, or in anatomically interior areas.
+  - helps the model learn to restore content that is more spatially constrained and less visible from the cortical boundary.
+
+- Cortical model:
+  - focuses on masks near the cortical surface and outer tissue layers.
+  - suitable for superficial lesions, boundary irregularities, and regions close to the brain cortex.
+  - encourages the model to recover fine-grained surface anatomy and local texture.
+
+- Center model:
+  - focuses on masks placed around the central / midline portion of the brain.
+  - useful for central lesions, symmetric midline pathology, and structures near the ventricular or central anatomical axis.
+  - emphasizes global consistency for centrally located inpainting.
+
+### Custom mask augmentation method
+
+In addition to the original lesion mask, we add synthetic masks to improve robustness and encourage the model to learn from diverse missing-region patterns.
+
+The current approach is:
+
+1. Start from the real lesion mask when available.
+2. Generate additional synthetic masks using several 3D geometric shapes:
+   - lesion-like mask,
+   - sphere,
+   - box,
+   - blob.
+3. Place the synthetic mask into a target region according to the model type:
+   - Deep -> deep/internal region,
+   - Cortical -> cortical/superficial region,
+   - Center -> central/midline region.
+4. Apply random translation, scaling, and deformation to make the augmented masks look more natural and less artificial.
+5. Normalize the mask to the appropriate latent spatial size before feeding it into the diffusion conditioning path.
+
+This strategy makes the training data more diverse while still preserving anatomical relevance. In practice, the model learns not only from the real lesion pattern, but also from a wider range of plausible inpainting masks that are placed in the same anatomical context as the target region.
+
 ### Current anatomy guidance in Stage 2
 
 Periodic seg guidance is enabled and computed every fseg iterations:

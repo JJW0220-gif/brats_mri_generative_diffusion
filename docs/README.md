@@ -2,7 +2,7 @@
 
 [![Challenge](https://img.shields.io/badge/BraTS-2026--Task4-blue.svg)](https://www.synapse.org)
 [![Framework](https://img.shields.io/badge/PyTorch-MONAI-orange.svg)](https://monai.io/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache--2.0-green.svg)](../LICENSE)
 
 **Author:** Jheng-Jie Wang (112062117)  
 **Project:** BraTS 2026 Challenge - Task 4: 3D Brain MRI Inpainting  
@@ -11,85 +11,117 @@
 
 ## 📖 Overview
 
-This repository contains the official implementation of an MNI-based, anatomically-guided 3D Latent Diffusion Model (LDM) framework for brain MRI inpainting, developed for the **BraTS 2026 Challenge (Task 4)**[cite: 1].
+This repository contains an MNI-based, anatomically-guided 3D Latent Diffusion Model (LDM) framework for brain MRI inpainting, developed for the **BraTS 2026 Challenge (Task 4)**.
 
 The pipeline solves the brain lesion/artifact inpainting problem by combining:
-1. **Spatial Normalization**: Bidirectional spatial mapping using the MNI152 template to eliminate anatomical variability across patient scans[cite: 1].
-2. **Early Feature Fusion**: A 17-channel concatenation input strategy (`Z_noisy`, `mask_latent`, `Z_voided`) for strict voxel-level spatial alignment[cite: 1].
-3. **Anatomical Guidance (AG-LDM)**: Two-stage training utilizing a frozen MONAI 3D brain segmentation model (**WarpSeg**) as a teacher network for semantic regularization and sampling feedback[cite: 1].
-4. **Region-Aware Modeling**: Specialized diffusion models for **Deep**, **Cortical**, and **Center** brain regions to handle diverse topological variations[cite: 1].
+1. **Spatial Normalization**: Bidirectional spatial mapping using the MNI152 template to reduce anatomical variability across patient scans.
+2. **Latent Conditioning**: A 17-channel concatenation input strategy (`Z_noisy`, `mask_latent`, `Z_voided`) for voxel-level spatial alignment.
+3. **Anatomical Guidance**: Two-stage training with a frozen MONAI 3D segmentation teacher for semantic regularization and sampling feedback.
+4. **Region-Aware Modeling**: Separate diffusion checkpoints for **Deep**, **Cortical**, and **Center** brain regions.
 
 ---
 
 ## 🚀 Key Features & Architecture
 ### 1. Spatial Standardization (Stage 0)
-* Rigid/non-rigid alignment of native MRI volumes into the common MNI152 1mm template space[cite: 1].
-* Guarantees structural consistency across different patients before latent encoding[cite: 1].
+* Alignment of native MRI volumes into the common MNI152 1mm template space.
+* Produces reusable per-case MNI cache files before latent encoding.
 
 ### 2. Anatomy-Aware Autoencoder Regularization (Stage 1)
-* Trained with a custom `VaeGanTrainer` and `PatchGAN` discriminator[cite: 1].
-* Employs sparse anatomical segmentation feedback from a frozen teacher model (`WarpSeg`) every $N_{steps}=4$[cite: 1].
-* **Low-VRAM Optimization**: Optimized to fit within 16GB GPUs via patch size `[96, 128, 96]`, batch size `1`, and sparse loss evaluation[cite: 1].
+* Trained with the repository's anatomy-aware VAE/GAN trainer and PatchGAN discriminator.
+* Employs sparse anatomical segmentation feedback from a frozen teacher model every `seg_every_n_steps=4`.
+* **Low-VRAM Optimization**: The current configuration uses patch size `[96, 128, 96]`, batch size `1`, and sparse loss evaluation.
 
 ### 3. Mask-Conditioned Latent Diffusion (Stage 2)
 * **17-Channel Latent Input**:
   $$\text{Input}_{\text{diffusion}} = [Z_{\text{noisy}}\,(8\text{ch}) \,\vert{}\vert{}\, \text{mask}_{\text{latent}}\,(1\text{ch}) \,\vert{}\vert{}\, Z_{\text{voided}}\,(8\text{ch})]$$
-[cite: 1]
-* **Segmenter-Assisted Sampling Guidance**: Triggers a short-trajectory 10-step DDIM rollout every $f_{seg}=20$ iterations to compute structural boundary gradients for dynamic trajectory tuning[cite: 1].
+* **Segmenter-Assisted Sampling Guidance**: Triggers a short 10-step DDIM rollout every `fseg=20` iterations to compute structural guidance.
 * **Region-Aware Partitioning**:
-  * **Deep Model**: Subcortical and deep gray matter[cite: 1].
-  * **Cortical Model**: Superficial lesions and sulcal topology[cite: 1].
-  * **Center Model**: Midline axis and ventricular symmetry[cite: 1].
+  * **Deep Model**: Learns masks and inpainting patterns in interior or subcortical regions. Checkpoint: `models/model_inpaint_mni_deep.pt`.
+  * **Cortical Model**: Learns masks near the cortical boundary and superficial tissue. Checkpoint: `models/model_inpaint_mni_cortical.pt`.
+  * **Center Model**: Learns masks near the central or midline region. Checkpoint: `models/model_inpaint_mni_center.pt`.
+
+### Custom mask augmentation
+
+`RandomMaskAugmentd` can augment the real lesion mask with synthetic 3D masks. The synthetic mask generator samples box, sphere, and blob shapes, then places them according to the training region:
+
+* `region='deep'` places the mask around the volume interior.
+* `region='cortical'` places the mask near the volume boundary.
+* `region='center'` places the mask near the volume center.
+
+The region-specific training configs disable random region selection and pass the matching fixed region to `make_inpaint_mni_transforms`. This keeps synthetic mask placement aligned with the checkpoint being trained. The placement is a geometric heuristic in MNI space, not an atlas-derived anatomical segmentation.
 
 ### 4. Seamless Inverse Mapping & Fusion
-* Composites generated pseudo-healthy tissues inside the mask boundary with original healthy background outside[cite: 1].
-* Warps synthesized MNI volumes back into the original patient's native clinical space ($T_{mri \rightarrow mni}^{-1}$)[cite: 1].
+* Composites generated tissue inside the mask boundary with the original voided image outside.
+* Warps synthesized MNI volumes back into the original patient's native space when transform metadata is available.
 
 ---
 
 ## 📊 Experimental Results
 
-Evaluating on the BraTS Validation Set ($N=219$)[cite: 1]:
+Evaluating on the BraTS Validation Set ($N=219$):
 
 | Metric | Value ($\text{Mean} \pm \text{Std}$) |
 | :--- | :--- |
-| **SSIM** $\uparrow$ | $0.7005 \pm 0.1216$[cite: 1] |
-| **PSNR (dB)** $\uparrow$ | $16.1258 \pm 2.5945$[cite: 1] |
-| **MSE** $\downarrow$ | $0.0293 \pm 0.0212$[cite: 1] |
-| **RMSE** $\downarrow$ | $0.0517 \pm 0.0259$[cite: 1] |
-| **MAE** $\downarrow$ | $0.0342 \pm 0.0182$[cite: 1] |
+| **SSIM** $\uparrow$ | $0.7005 \pm 0.1216$ |
+| **PSNR (dB)** $\uparrow$ | $16.1258 \pm 2.5945$ |
+| **MSE** $\downarrow$ | $0.0293 \pm 0.0212$ |
+| **RMSE** $\downarrow$ | $0.0517 \pm 0.0259$ |
+| **MAE** $\downarrow$ | $0.0342 \pm 0.0182$ |
 
 ---
 
 ## 🛠️ Usage
 
 ### 1. Data Preprocessing & MNI Cache Building
-Transform raw BraTS volumes into standardized MNI space:
+Run commands from the repository root. Transform raw BraTS volumes into standardized MNI space:
 ```bash
-python build_mni_dataset.py --input_dir /path/to/raw_brats --output_dir /path/to/mni_cache
-```[cite: 1]
+python scripts/build_mni_dataset.py \
+  --data_dir /path/to/raw_brats \
+  --template_path ./MNI152_T1_1mm_brain.nii.gz \
+  --output_dir ./data/mni_cache \
+  --overwrite
+```
+
+If the cache is already aligned and only pseudo-healthy targets are needed:
+```bash
+python scripts/build_mni_dataset.py \
+  --aligned_cache_dir ./data/mni_cache \
+  --template_path ./MNI152_T1_1mm_brain.nii.gz \
+  --overwrite
+```
+
+Each cached case may contain `t1n_mni.nii.gz`, `mask_mni.nii.gz`, `unhealthy_mask_mni.nii.gz`, `healthy_mask_mni.nii.gz`, `t1n_voided_mni.nii.gz`, `t1n_pseudo_healthy_mni.nii.gz`, the MNI transform, and `metadata.json`.
 
 ### 2. Stage 1: Autoencoder Training
 Train the anatomy-aware 8-channel latent VAE:
 ```bash
-python train_stage1_ae.py --config configs/stage1_ae.yaml
+python -m monai.bundle run --config_file configs/train_autoencoder_mni.json
+```
 
-python train_stage2_diffusion.py --config configs/stage2_diffusion.yaml --model_type [deep|cortical|center]
-```[cite: 1]
+### 3. Stage 2: Region-Specific Diffusion Training
+Train one checkpoint for each region. Each config filters the MNI cache by `train_region` and uses a matching fixed synthetic-mask region.
+```bash
+python -m monai.bundle run --config_file configs/train_diffusion_inpaint_mni_deep.json
+python -m monai.bundle run --config_file configs/train_diffusion_inpaint_mni_cortical.json
+python -m monai.bundle run --config_file configs/train_diffusion_inpaint_mni_center.json
+```
+
+Each config saves a final checkpoint named `model_inpaint_mni_<region>.pt` under `models/`. If that file exists at startup, its weights are loaded before training; otherwise training starts from the initialized diffusion network.
 
 ### 4. Inference
-Run inpainting on test subjects and export native space `.nii.gz` results:
+Run MNI inpainting on validation subjects and export MNI/native-space `.nii.gz` results:
 ```bash
-python run_inference.py \
-    --input_case /path/to/native_case.nii.gz \
-    --mask /path/to/mask.nii.gz \
-    --output_path ./inpainted_native.nii.gz
-```[cite: 1]
+python -m monai.bundle run --config_file configs/inference_inpaint_mni.json
+```
+
+The sampler determines the case region and routes it to `model_inpaint_mni_deep.pt`, `model_inpaint_mni_cortical.pt`, or `model_inpaint_mni_center.pt`. It fails if the required region checkpoint is missing; it does not silently fall back to a unified checkpoint.
+
+Large datasets, cache volumes, model weights, and generated outputs should remain outside the normal Git history. The repository `.gitignore` excludes paths such as `data/`, `models/`, `*.pt`, and `*.nii.gz`; Git LFS is required if these artifacts must be stored remotely.
 
 ---
 
 ## 📚 References
 
-1. **Palette**: Saharia, C., et al. "Palette: Image-to-image diffusion models." *ACM SIGGRAPH*, 2022.[cite: 1]
-2. **RePaint**: Lugmayr, A., et al. "Repaint: Inpainting using denoising diffusion probabilistic models." *CVPR*, 2022.[cite: 1]
-3. **AG-LDM**: Wan, C., et al. "Anatomically Guided Latent Diffusion for Brain MRI Progression Modeling." *arXiv:2601.14584*, 2026.[cite: 1]
+1. **Palette**: Saharia, C., et al. "Palette: Image-to-image diffusion models." *ACM SIGGRAPH*, 2022.
+2. **RePaint**: Lugmayr, A., et al. "RePaint: Inpainting using denoising diffusion probabilistic models." *CVPR*, 2022.
+3. **AG-LDM**: Wan, C., et al. "Anatomically Guided Latent Diffusion for Brain MRI Progression Modeling." *arXiv:2601.14584*, 2026.
