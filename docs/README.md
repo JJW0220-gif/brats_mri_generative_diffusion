@@ -1,7 +1,6 @@
 # MNI-Based Anatomically-Guided 3D Latent Diffusion Model for BraTS 2026 Challenge (Task 4)
 
 [![Challenge](https://img.shields.io/badge/BraTS-2026--Task4-blue.svg)](https://www.synapse.org)
-[![Framework](https://img.shields.io/badge/PyTorch-MONAI-orange.svg)](https://monai.io/)
 [![License](https://img.shields.io/badge/License-Apache--2.0-green.svg)](../LICENSE)
 
 **Author:** Jheng-Jie Wang (112062117)  
