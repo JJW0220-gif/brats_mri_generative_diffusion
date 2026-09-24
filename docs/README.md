@@ -21,6 +21,31 @@ The pipeline solves the brain lesion/artifact inpainting problem by combining:
 
 ---
 
+## Pretrained Model
+
+The pretrained model used in this project is the base MONAI 3D latent diffusion model before the region-specific mask-conditioned fine-tuning. It provides the initialization and baseline for 3D brain MRI inpainting.
+
+The pretrained weights are loaded from the local `models/` directory:
+
+* `models/model_autoencoder.pt`: pretrained 3D `AutoencoderKL` used to encode MRI volumes into 8-channel latent representations.
+* `models/model.pt`: pretrained 3D diffusion U-Net used as the base diffusion model before mask conditioning and region-specific training.
+
+These weights are loaded by the inference and fine-tuning configs; they are not downloaded automatically by the training commands. The region-specific checkpoints (`model_inpaint_mni_deep.pt`, `model_inpaint_mni_cortical.pt`, and `model_inpaint_mni_center.pt`) are derived training outputs and should be distinguished from the original pretrained baseline.
+
+The pretrained baseline was evaluated on 219 validation cases using five image-reconstruction metrics:
+
+| Metric | Value (Mean +/- Std) |
+| :--- | :--- |
+| **SSIM** | 0.5468175114192994 +/- 0.15803867813841377 |
+| **PSNR (dB)** | 9.807287362476877 +/- 3.659877873659053 |
+| **MSE** | 0.13279866336268328 +/- 0.07318928674526683 |
+| **RMSE** | 0.11181356570780017 |
+| **MAE** | 0.08476125223832869 |
+
+`cases_evaluated`: 219
+
+---
+
 ## 🚀 Key Features & Architecture
 ### 1. Spatial Standardization (Stage 0)
 * Alignment of native MRI volumes into the common MNI152 1mm template space.
@@ -69,20 +94,6 @@ Evaluating on the BraTS Validation Set ($N=219$):
 | **MSE** $\downarrow$ | $0.0293 \pm 0.0212$ |
 | **RMSE** $\downarrow$ | $0.0517 \pm 0.0259$ |
 | **MAE** $\downarrow$ | $0.0342 \pm 0.0182$ |
-
-### Pretrained model evaluation
-
-The pretrained model was evaluated on 219 cases with the following results:
-
-| Metric | Value ($\text{Mean} \pm \text{Std}$) |
-| :--- | :--- |
-| **SSIM** $\uparrow$ | $0.5468175114192994 \pm 0.15803867813841377$ |
-| **PSNR (dB)** $\uparrow$ | $9.807287362476877 \pm 3.659877873659053$ |
-| **MSE** $\downarrow$ | $0.13279866336268328 \pm 0.07318928674526683$ |
-| **RMSE** $\downarrow$ | $0.11181356570780017$ |
-| **MAE** $\downarrow$ | $0.08476125223832869$ |
-
-`cases_evaluated`: 219
 
 ---
 
