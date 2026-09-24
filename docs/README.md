@@ -33,7 +33,9 @@ The pipeline solves the brain lesion/artifact inpainting problem by combining:
 
 ### 3. Mask-Conditioned Latent Diffusion (Stage 2)
 * **17-Channel Latent Input**:
-  $$\text{Input}_{\text{diffusion}} = [Z_{\text{noisy}}\,(8\text{ch}) \,\vert{}\vert{}\, \text{mask}_{\text{latent}}\,(1\text{ch}) \,\vert{}\vert{}\, Z_{\text{voided}}\,(8\text{ch})]$$
+  ```text
+  diffusion input = [Z_noisy (8 channels) || mask_latent (1 channel) || Z_voided (8 channels)]
+  ```
 * **Segmenter-Assisted Sampling Guidance**: Triggers a short 10-step DDIM rollout every `fseg=20` iterations to compute structural guidance.
 * **Region-Aware Partitioning**:
   * **Deep Model**: Learns masks and inpainting patterns in interior or subcortical regions. Checkpoint: `models/model_inpaint_mni_deep.pt`.
@@ -67,6 +69,24 @@ Evaluating on the BraTS Validation Set ($N=219$):
 | **MSE** $\downarrow$ | $0.0293 \pm 0.0212$ |
 | **RMSE** $\downarrow$ | $0.0517 \pm 0.0259$ |
 | **MAE** $\downarrow$ | $0.0342 \pm 0.0182$ |
+
+### Pretrained model evaluation
+
+The pretrained model was evaluated on 219 cases with the following results:
+
+| Metric | Mean | Standard deviation |
+| :--- | ---: | ---: |
+| SSIM | 0.5468175114192994 | 0.15803867813841377 |
+| MSE | 0.13279866336268328 | 0.07318928674526683 |
+| RMSE | 0.11181356570780017 | - |
+| MSLE | 0.03558810337416418 | - |
+| MAE | 0.08476125223832869 | - |
+| PSNR | 9.807287362476877 | 3.659877873659053 |
+| PSNR (normalized 0-1) | 9.807287367563399 | 3.6598779067865324 |
+| PSNR epsilon | 3.6598780694312754 | - |
+| PSNR (normalized 0-1) epsilon | 3.6598780939554545 | - |
+
+`cases_evaluated`: 219
 
 ---
 
